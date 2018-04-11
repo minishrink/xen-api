@@ -5,13 +5,7 @@ module C = Client.Client
 let is_empty = function | [] -> true | _ -> false
 let rpc = !Q.rpc
 
-(* [Q.failed test.Q.name string_of_failure] removes [test] from a test Hashtbl
- * and is therefore only called once, in the try-with statement.
- * This exception is raised within the try-with body to trigger
- * [Q.failed test string_of_failure] *)
-exception Abort_test of string
-
-(** --- Helpers for IP reconfiguration tests --- *)
+(** --- Helpers for reconfiguration --- *)
 
 let reconfigure_ipv4 ~session_id ~self ~dNS =
   let netmask = C.PIF.get_netmask ~session_id ~rpc ~self in
@@ -25,7 +19,7 @@ let reconfigure_ipv6 ~session_id ~self ~dNS =
   (* confirm valid IPv6 strings exist *)
   let iPv6_lst = (C.PIF.get_IPv6 ~session_id ~rpc ~self) |> List.filter ((<>) "") in
   if is_empty iPv6_lst
-  then raise (Abort_test "No valid IPv6 strings exist.");
+  then Alcotest.fail "No valid IPv6 strings exist.";
 
   let gateway = C.PIF.get_ipv6_gateway ~session_id ~rpc ~self in
   let mode = C.PIF.get_ipv6_configuration_mode ~session_id ~rpc ~self in
@@ -35,51 +29,45 @@ let reconfigure_ipv6 ~session_id ~self ~dNS =
 (** --- Test skeleton, receives environment params before running  --- *)
 let test_reconfigure_ip ~ipv6 ~session_id ~(self : API.ref_PIF) =
   let ip_string = if ipv6 then "IPv6" else "IPv4" in
-  let test =
-    Q.make_test (Printf.sprintf "Testing reconfiguring %s with clustering." ip_string) 4
-  in
+  Printf.printf "Testing reconfiguring %s with clustering.\n" ip_string;
   try
-    Q.start test;
-
-    let dNS = C.PIF.get_DNS ~session_id ~rpc ~self in
+    let dNS = C.PIF.get_DNS ~session_id ~rpc:!rpc ~self in
     if ipv6
     then reconfigure_ipv6 ~session_id ~self ~dNS
     else reconfigure_ipv4 ~session_id ~self ~dNS;
 
-    Q.failed test "PIF.reconfigure_ip should raise CLUSTERING_ENABLED"
+    Alcotest.fail "PIF.reconfigure_ip should raise clustering_enabled_on_network."
   with
-  | Api_errors.(Server_error(code,_)) when code=Api_errors.clustering_enabled
-      -> Q.debug test (Printf.sprintf "%s raised as expected." Api_errors.clustering_enabled);
-         Q.success test
+  | Api_errors.(Server_error(code,_)) when code=Api_errors.clustering_enabled_on_network
+      -> print_endline (Printf.sprintf "%s raised as expected." Api_errors.clustering_enabled_on_network)
   | Api_errors.(Server_error(_,_)) -> () (* Don't fail on other API errors, only test clustering *)
-  | Abort_test s -> Q.failed test s
-  | e -> Q.failed test (ExnHelper.string_of_exn e)
 
 (** --- Check environment before calling test --- *)
-let test session_id =
-  let test_all_pifs = Q.make_test "Testing IP reconfiguration with and without clustering." 2 in
-  try
-    print_newline ();
-    Q.start test_all_pifs;
-    print_newline ();
+let test session_id () =
+  print_endline "Testing IP reconfiguration with and without clustering.";
+  print_newline ();
+  print_newline ();
+  let pifs = Client.PIF.get_all ~session_id ~rpc:!rpc in
 
-    let enabled_cluster_hosts =
-      List.filter
-        (fun self -> C.Cluster_host.get_enabled ~session_id ~rpc ~self)
-        (C.Cluster_host.get_all ~session_id ~rpc)
-    in
-    if is_empty enabled_cluster_hosts
-    then Q.debug test_all_pifs "No PIFS with clustering enabled, skipping tests."
-    else begin
-      enabled_cluster_hosts
-      |> List.map
-        (fun self -> C.Cluster_host.get_PIF ~session_id ~rpc ~self)
-      |> List.iter
-        (fun self ->
-          test_reconfigure_ip ~ipv6:false ~session_id ~self
-            (* IPv6 clusters not yet supported, can run this line once they are:
-               test_reconfigure_ip ~ipv6:true ~session_id ~self *)
-        );
-      Q.success test_all_pifs
-    end
-  with e -> Q.failed test_all_pifs (ExnHelper.string_of_exn e)
+  List.iter
+    (fun self ->
+       let clustering =
+         let network = C.PIF.get_network ~session_id ~rpc:!rpc ~self in
+         C.Cluster.get_all ~session_id ~rpc:!rpc
+         |> List.filter
+           (fun cluster -> (C.Cluster.get_network ~session_id ~rpc:!rpc ~self:cluster) = network)
+         |> (fun lst -> not (is_empty lst))
+       in
+       if clustering
+       then begin
+         test_reconfigure_ip ~ipv6:false ~session_id ~self
+         (* IPv6 clusters not yet supported, can run this test once that changes *)
+         (* test_reconfigure_ip ~ipv6:true ~session_id ~self *)
+       end
+       else
+         print_endline "No cluster objects on this PIF, skipping tests."
+    ) pifs
+
+let tests session_id =
+  [ "IP reconfiguration test", `Slow, test session_id
+  ]
