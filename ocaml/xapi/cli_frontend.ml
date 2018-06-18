@@ -2939,6 +2939,14 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.Cluster.pool_resync;
       flags=[];
     };
+    "cluster-pool-disable",
+    {
+      reqd=["cluster-uuid"];
+      optn=[];
+      help="Disable a cluster across a pool";
+      implementation=No_fd Cli_operations.Cluster.pool_disable;
+      flags=[];
+    };
     "cluster-create",
     {
       reqd=["pif-uuid"];

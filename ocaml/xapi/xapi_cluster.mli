@@ -62,3 +62,7 @@ val pool_resync : __context:Context.t -> self:API.ref_Cluster -> unit
     Cluster_host objects (ie., one for each host in the pool if the Cluster
     has [pool_auto_join] set. If there is a failure, this function must return
     an error that enables the administrator to fix the problem. *)
+
+val pool_disable : __context:Context.t -> self:API.ref_Cluster -> unit
+(** [pool_disable ~__context ~self] iterates through cluster_hosts of [self]
+    and disables all but the last one, ignoring exceptions raised *)

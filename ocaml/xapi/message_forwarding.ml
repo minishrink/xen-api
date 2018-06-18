@@ -4333,6 +4333,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let pool_resync ~__context ~self = (* iterates Cluster_host.enable and Cluster_host where necessary*)
       info "Cluster.pool_resync cluster: %s" (Ref.string_of self);
       Local.Cluster.pool_resync ~__context ~self
+
+    let pool_disable ~__context ~self = (* iterates Cluster_host.disable *)
+      info "Cluster.pool_disable cluster: %s" (Ref.string_of self);
+      Local.Cluster.pool_disable ~__context ~self
   end
 
   module Cluster_host = struct

@@ -138,6 +138,14 @@ let pool_resync = call
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
+let pool_disable = call
+    ~name:"pool_disable"
+    ~doc:"Disable all but final cluster_host in pool"
+    ~params:[ Ref _cluster, "self", "The cluster to disable"]
+    ~lifecycle:lifecycle_timeout
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
 let t =
   create_obj
     ~name: _cluster
@@ -201,5 +209,6 @@ let t =
       ; pool_force_destroy
       ; pool_destroy
       ; pool_resync
+      ; pool_disable
       ]
     ()

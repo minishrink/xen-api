@@ -213,3 +213,13 @@ let pool_resync ~__context ~(self : API.ref_Cluster) =
                find or create a matching cluster_host which is also enabled *)
         )
     ) (Xapi_pool_helpers.get_master_slaves_list ~__context)
+
+let pool_disable ~__context ~self =
+  match Db.Cluster.get_cluster_hosts ~__context ~self with
+  | _ :: cluster_hosts ->
+    List.iter
+      (fun (self : API.ref_Cluster_host) -> log_and_ignore_exn
+        (fun () -> Helpers.call_api_functions ~__context (fun rpc session_id ->
+            Client.Client.Cluster_host.disable ~rpc ~session_id ~self))
+      ) cluster_hosts
+  | _ -> ()
