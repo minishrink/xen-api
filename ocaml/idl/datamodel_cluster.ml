@@ -64,6 +64,11 @@ let create = call
        ] @timeout_params)
     ~lifecycle
     ~allowed_roles:_R_POOL_ADMIN
+    ~errs:[ Api_errors.invalid_cluster_stack
+          ; Api_errors.invalid_value
+          ; Api_errors.pif_allows_unplug
+          ; Api_errors.required_pif_is_unplugged
+          ]
     ()
 
 let destroy = call
@@ -74,6 +79,9 @@ let destroy = call
       ]
     ~lifecycle
     ~allowed_roles:_R_POOL_ADMIN
+    ~errs:[ Api_errors.cluster_does_not_have_one_node
+          ; Api_errors.cluster_stack_in_use
+          ]
     ()
 
 let get_network = call
@@ -118,6 +126,8 @@ let pool_force_destroy = call
       ]
     ~lifecycle
     ~allowed_roles:_R_POOL_ADMIN
+    ~errs:[ Api_errors.cluster_force_destroy_failed
+          ]
     ()
 
 let pool_destroy = call
@@ -136,6 +146,8 @@ let pool_resync = call
     ~params:[ Ref _cluster, "self", "The cluster to resync"]
     ~lifecycle
     ~allowed_roles:_R_POOL_ADMIN
+    ~errs:[ Api_errors.no_compatible_cluster_host
+          ]
     ()
 
 let t =
